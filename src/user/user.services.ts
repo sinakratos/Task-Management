@@ -5,6 +5,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entity/user.entity';
 import * as bcrypt from 'bcryptjs';
+import { Role } from './enums/role.enum';
 @Injectable()
 export class UserService {
   constructor(
@@ -40,6 +41,7 @@ export class UserService {
     const user = this.userRepository.create({
       ...createUserDto,
       password: hashedPassword,
+      role: createUserDto.role ?? Role.USER,
     });
 
     return this.userRepository.save(user);

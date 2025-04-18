@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserModule } from 'src/user/user.modules';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         logging: true,
       }),
     }),
+    UserModule,
   ],
 })
 export class DbModule {}

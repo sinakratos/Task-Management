@@ -6,6 +6,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entity/user.entity';
 import * as bcrypt from 'bcryptjs';
 import { Role } from './enums/role.enum';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 @Injectable()
 export class UserService {
   constructor(
@@ -47,8 +48,12 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  findAll() {
-    return this.userRepository.find();
+  findAll(paginationQuery: PaginationQueryDto) {
+    const { limit, offset } = paginationQuery;
+    return this.userRepository.find({
+      skip: offset,
+      take: limit,
+    });
   }
 
   findOne(id: number) {

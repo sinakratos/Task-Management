@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -44,27 +44,47 @@ export class UserService {
       password: hashedPassword,
       role: createUserDto.role ?? Role.USER,
     });
-
-    return this.userRepository.save(user);
+    const result = await this.userRepository.save(user);
+    return result;
   }
 
-  findAll(paginationQuery: PaginationQueryDto) {
+  async findAll(paginationQuery: PaginationQueryDto) {
     const { limit, offset } = paginationQuery;
-    return this.userRepository.find({
+    const result = await this.userRepository.find({
       skip: offset,
       take: limit,
     });
+
+    return result;
   }
 
-  findOne(id: number) {
-    return this.userRepository.findOne({ where: { id } });
+  async findOneById(id: number) {
+    const result = await this.userRepository.findOne({ where: { id } });
+    return result;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return this.userRepository.update(id, updateUserDto);
+  async findByUsername(username: string) {
+    const result = await this.userRepository.findOne({ where: { username } });
+    return result;
   }
 
-  remove(id: number) {
-    return this.userRepository.delete(id);
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    console.log(id, updateUserDto);
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const updated = Object.assign(user, updateUserDto);
+    return this.userRepository.save(updated);
+
+    // const result = await this.userRepository.update(id, updateUserDto);
+    // console.log(result);
+    // return result;
+  }
+
+  async removeById(id: number) {
+    await this.userRepository.delete(id);
+    return 'User deleted successfully';
   }
 }

@@ -27,5 +27,5 @@ export class CreateUserDto {
   password: string;
 
   @ApiProperty({ enum: Role, default: Role.USER })
-  role?: Role;
+  role: Role;
 }

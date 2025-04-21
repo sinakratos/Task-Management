@@ -21,7 +21,7 @@ export class UserService {
   }
 
   async create(createUserDto: CreateUserDto) {
-    const { email, username, phone, password } = createUserDto;
+    const { email, username, phone, password, role } = createUserDto;
     //
     if (!this.isPasswordValid(password)) {
       throw new InternalServerErrorException(
@@ -77,10 +77,17 @@ export class UserService {
 
     const updated = Object.assign(user, updateUserDto);
     return this.userRepository.save(updated);
+  }
 
-    // const result = await this.userRepository.update(id, updateUserDto);
-    // console.log(result);
-    // return result;
+  async toggleRole(userId: number, role: Role) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    user.role = user.role === role ? Role.USER : role;
+
+    await this.userRepository.save(user);
+
+    return `Role updated: ${user.username} is now ${user.role}`;
   }
 
   async removeById(id: number) {

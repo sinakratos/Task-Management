@@ -1,13 +1,15 @@
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
 import { Module } from '@nestjs/common';
-import { UserModule } from 'src/user/user.modules';
-import { JwtStrategy } from './jwt.strategy';
+import { PassportModule } from '@nestjs/passport';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { JwtStrategy } from './jwt.strategy';
+import { RolesGuard } from './role.guard';
+
+import { UserModule } from 'src/user/user.modules';
 import { User } from 'src/user/entity/user.entity';
-import { RolesGuard } from './roles.decorator';
 
 @Module({
   imports: [

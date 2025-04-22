@@ -4,9 +4,12 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 
 import { Role } from '../enums/role.enum';
+
+import { Task } from 'src/task/entity/task.entity';
 
 @Entity({ name: 'user' })
 export class User {
@@ -36,4 +39,7 @@ export class User {
 
   @Column({ nullable: true })
   avatar: string;
+
+  @OneToMany(() => Task, task => task.user)
+  tasks: Task[];
 }

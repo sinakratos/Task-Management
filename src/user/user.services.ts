@@ -1,11 +1,14 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
+
+import { Role } from './enums/role.enum';
+import { User } from './entity/user.entity';
+
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entity/user.entity';
-import * as bcrypt from 'bcryptjs';
-import { Role } from './enums/role.enum';
+import { UpdateUserByUserDto } from './dto/update-user-byUser.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 @Injectable()
 export class UserService {
@@ -16,19 +19,26 @@ export class UserService {
 
   // Validate password strength (min 8 chars, at least 1 upper, 1 lower)
   private isPasswordValid(password: string): boolean {
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     return passwordRegex.test(password);
+  }
+  //
+  private async hashPassword(entryPassword: string) {
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(entryPassword, salt);
+    return hashedPassword;
   }
 
   async create(createUserDto: CreateUserDto) {
     const { email, username, phone, password, role } = createUserDto;
+    console.log(createUserDto);
     //
     if (!this.isPasswordValid(password)) {
       throw new InternalServerErrorException(
         'Password must be at least 8 characters long, contain both uppercase and lowercase letters, and include at least one number.',
       );
     }
-    //
+
     const existingUser = await this.userRepository.findOne({
       where: [{ username }, { email }, { phone }],
     });
@@ -36,13 +46,10 @@ export class UserService {
       throw new InternalServerErrorException('Username, email, or phone already taken');
     }
     //
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
-
     const user = this.userRepository.create({
       ...createUserDto,
-      password: hashedPassword,
-      role: createUserDto.role ?? Role.USER,
+      password: await this.hashPassword(createUserDto.password),
+      role: role ?? Role.USER,
     });
     const result = await this.userRepository.save(user);
     return result;
@@ -69,14 +76,48 @@ export class UserService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
-    console.log(id, updateUserDto);
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    const updated = Object.assign(user, updateUserDto);
-    return this.userRepository.save(updated);
+    // Create a clean object with only non-empty fields
+    const cleanedData: Partial<UpdateUserDto> = {};
+    for (const [key, value] of Object.entries(updateUserDto)) {
+      if (value !== '' && value !== undefined && value !== null) {
+        cleanedData[key] = value;
+      }
+    }
+
+    if (cleanedData.password) {
+      cleanedData.password = await this.hashPassword(cleanedData.password);
+    }
+
+    const updatedUser = this.userRepository.merge(user, cleanedData);
+    const result = await this.userRepository.save(updatedUser);
+    return result;
+  }
+
+  async updateUser(id: number, updateUserByUserDto: UpdateUserByUserDto) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    // Create a clean object with only non-empty fields
+    const cleanedData: Partial<UpdateUserByUserDto> = {};
+    for (const [key, value] of Object.entries(updateUserByUserDto)) {
+      if (value !== '' && value !== undefined && value !== null) {
+        cleanedData[key] = value;
+      }
+    }
+    if (cleanedData.password) {
+      cleanedData.password = await this.hashPassword(cleanedData.password);
+    }
+
+    const updatedUser = this.userRepository.merge(user, cleanedData);
+    const result = await this.userRepository.save(updatedUser);
+    return result;
   }
 
   async toggleRole(userId: number, role: Role) {

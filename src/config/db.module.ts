@@ -19,7 +19,7 @@ import { UserModule } from 'src/user/user.modules';
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: true,
-        logging: true,
+        logging: false,
       }),
     }),
     UserModule,

@@ -10,6 +10,8 @@ import {
   UploadedFile,
   UseGuards,
   ParseIntPipe,
+  BadRequestException,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiBody, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -80,6 +82,29 @@ export class TaskController {
   @Roles(Role.USER)
   findOne(@Param('id') id: string) {
     return this.taskService.findOne(+id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('tasks/filter/:keyword')
+  async getTasksFiltered(@Param('keyword') keyword: string) {
+    if (!keyword || keyword.trim() === '') {
+      throw new BadRequestException('Keyword cannot be empty');
+    }
+    return this.taskService.findAllSortedAndFiltered('id', 'ASC', keyword);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('tasks/sort/:field/:order')
+  async getTasksSorted(
+    @Param('field') field: string,
+    @Param('order', new ParseEnumPipe(['ASC', 'DESC'])) order: 'ASC' | 'DESC',
+  ) {
+    if (!field || field.trim() === '') {
+      throw new BadRequestException('Sort field cannot be empty');
+    }
+    return this.taskService.findAllSortedAndFiltered(field, order);
   }
 
   @Patch(':id')

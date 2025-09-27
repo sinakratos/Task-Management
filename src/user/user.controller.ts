@@ -11,6 +11,8 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -126,6 +128,28 @@ export class UserController {
   @ApiOperation({ summary: 'Find user by Username' })
   async findByUsername(@Param('username') username: string) {
     return this.userService.findByUsername(username);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('filter/:keyword')
+  async getUsersFiltered(@Param('keyword') keyword: string) {
+    if (!keyword || keyword.trim() === '') {
+      throw new BadRequestException('Keyword cannot be empty');
+    }
+    return this.userService.findAllSortedAndFiltered('id', 'ASC', keyword);
+  }
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('sort/:field/:order')
+  async getUsersSorted(
+    @Param('field') field: string,
+    @Param('order', new ParseEnumPipe(['ASC', 'DESC'])) order: 'ASC' | 'DESC',
+  ) {
+    if (!field || field.trim() === '') {
+      throw new BadRequestException('Sort field cannot be empty');
+    }
+    return this.userService.findAllSortedAndFiltered(field, order);
   }
 
   @Patch('update/:id')

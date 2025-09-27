@@ -102,4 +102,24 @@ export class TaskService {
       console.warn(`Could not delete file: ${filePath}`, err.message);
     }
   }
+
+  async findAllSortedAndFiltered(
+    sortBy: string = 'id',
+    sort: 'ASC' | 'DESC' = 'ASC',
+    search?: string,
+  ) {
+    const query = this.taskRepo.createQueryBuilder('task').leftJoinAndSelect('task.user', 'user');
+
+    // Filter
+    if (search) {
+      query.where('task.name LIKE :search OR task.description LIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    // Sort
+    query.orderBy(`task.${sortBy}`, sort);
+
+    return query.getMany();
+  }
 }

@@ -125,4 +125,25 @@ export class UserService {
     const updated = this.userRepository.merge(user, cleaned);
     return this.userRepository.save(updated);
   }
+
+  async findAllSortedAndFiltered(
+    sortBy: string = 'id',
+    sort: 'ASC' | 'DESC' = 'ASC',
+    search?: string,
+  ) {
+    const query = this.userRepository.createQueryBuilder('user');
+
+    // Filter
+    if (search) {
+      query.where(
+        'user.username LIKE :search OR user.email LIKE :search OR user.phone LIKE :search',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Sort
+    query.orderBy(`user.${sortBy}`, sort);
+
+    return query.getMany();
+  }
 }

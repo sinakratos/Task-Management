@@ -132,7 +132,11 @@ export class UserService {
   }
 
   async removeById(id: number) {
-    await this.userRepository.delete(id);
-    return 'User deleted successfully';
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this.userRepository.remove(user);
+
+    return { message: 'User and related tasks deleted successfully ' };
   }
 }

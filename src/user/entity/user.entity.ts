@@ -40,6 +40,9 @@ export class User {
   @Column({ nullable: true })
   avatar: string;
 
-  @OneToMany(() => Task, task => task.user)
+  @OneToMany(() => Task, task => task.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   tasks: Task[];
 }

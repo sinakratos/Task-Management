@@ -9,6 +9,7 @@ import {
   UseInterceptors,
   UploadedFile,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiBody, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -84,14 +85,45 @@ export class TaskController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.USER)
-  update(@Param('id') id: string, @Body() dto: UpdateTaskDto) {
-    return this.taskService.update(+id, dto);
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/attachment',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `attachment-${uniqueSuffix}${ext}`;
+          callback(null, filename);
+        },
+      }),
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update a task (name, description, or attachment)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        description: { type: 'string' },
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @UserDecorator() user: User,
+    @Body() updateTaskDto: UpdateTaskDto,
+    @UploadedFile() file: File,
+  ) {
+    return this.taskService.update(id, user, updateTaskDto, file);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.USER)
-  remove(@Param('id') id: string) {
-    return this.taskService.remove(+id);
+  @ApiOperation({ summary: 'Delete a task ' })
+  async delete(@Param('id', ParseIntPipe) id: number, @UserDecorator() user: User) {
+    return this.taskService.delete(id, user);
   }
 }

@@ -16,7 +16,9 @@ export class Task {
   @Column({ nullable: true })
   attachment: string;
 
-  @ManyToOne(() => User, user => user.tasks)
   @JoinColumn({ name: 'userId' })
+  @ManyToOne(() => User, user => user.tasks, {
+    onDelete: 'CASCADE',
+  })
   user: User;
 }

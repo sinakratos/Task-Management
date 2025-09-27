@@ -1,59 +1,61 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { unlinkSync } from 'fs';
-import { Repository } from 'typeorm';
 import { join } from 'path';
+import { Repository } from 'typeorm';
 import { File } from 'multer';
 
 import { Task } from './entity/task.entity';
+import { User } from 'src/user/entity/user.entity';
+
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-
-import { User } from 'src/user/entity/user.entity';
 
 @Injectable()
 export class TaskService {
   constructor(
     @InjectRepository(Task)
-    private taskRepo: Repository<Task>,
+    private readonly taskRepo: Repository<Task>,
     @InjectRepository(User)
-    private userRepo: Repository<User>,
+    private readonly userRepo: Repository<User>,
   ) {}
 
+  // -------------------------
+  // Create a new task
+  // -------------------------
   async create(user: User, dto: CreateTaskDto, file?: File) {
-    const userLink = await this.userRepo.findOne({ where: { id: user.id } });
-    if (!userLink) throw new NotFoundException('User not found');
+    const userLink = await this.getUserOrThrow(user.id);
 
-    console.log(user, dto, userLink);
     const task = this.taskRepo.create({
       ...dto,
       attachment: file ? file.filename : null,
       user: userLink,
     });
-    console.log(task);
 
     return this.taskRepo.save(task);
   }
 
+  // -------------------------
+  // Get all tasks with user
+  // -------------------------
   findAll() {
     return this.taskRepo.find({ relations: ['user'] });
   }
 
+  // -------------------------
+  // Get a single task
+  // -------------------------
   async findOne(id: number) {
     const task = await this.taskRepo.findOne({ where: { id }, relations: ['user'] });
     if (!task) throw new NotFoundException('Task not found');
     return task;
   }
 
+  // -------------------------
+  // Update a task
+  // -------------------------
   async update(id: number, user: User, dto: UpdateTaskDto, file?: File) {
-    const task = await this.taskRepo.findOne({
-      where: { id, user: { id: user.id } },
-      relations: ['user'],
-    });
-
-    if (!task) {
-      throw new NotFoundException('Task not found or not owned by user');
-    }
+    const task = await this.getTaskOrThrow(id, user.id);
 
     if (dto.name) task.name = dto.name;
     if (dto.description) task.description = dto.description;
@@ -62,26 +64,42 @@ export class TaskService {
     return this.taskRepo.save(task);
   }
 
+  // -------------------------
+  // Delete a task
+  // -------------------------
   async delete(id: number, user: User) {
-    const task = await this.taskRepo.findOne({
-      where: { id, user: { id: user.id } },
-      relations: ['user'],
-    });
+    const task = await this.getTaskOrThrow(id, user.id);
 
-    if (!task) {
-      throw new NotFoundException('Task not found!');
-    }
-
-    if (task.attachment) {
-      const filePath = join(process.cwd(), 'uploads/attachment', task.attachment);
-      try {
-        await unlinkSync(filePath);
-      } catch (err) {
-        console.warn(`Could not delete file: ${filePath}`, err.message);
-      }
-    }
+    if (task.attachment) this.deleteFile(task.attachment);
 
     await this.taskRepo.remove(task);
     return { message: 'Task deleted successfully' };
+  }
+
+  // -------------------------
+  // Helpers
+  // -------------------------
+  private async getUserOrThrow(id: number): Promise<User> {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  private async getTaskOrThrow(taskId: number, userId: number): Promise<Task> {
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, user: { id: userId } },
+      relations: ['user'],
+    });
+    if (!task) throw new NotFoundException('Task not found or not owned by user');
+    return task;
+  }
+
+  private deleteFile(filename: string) {
+    const filePath = join(process.cwd(), 'uploads/attachment', filename);
+    try {
+      unlinkSync(filePath);
+    } catch (err) {
+      console.warn(`Could not delete file: ${filePath}`, err.message);
+    }
   }
 }

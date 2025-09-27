@@ -7,7 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 
-import { Role } from '../enums/role.enum';
+import { Role } from 'src/auth/enums/role.enum';
 
 import { Task } from 'src/task/entity/task.entity';
 

@@ -14,12 +14,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { diskStorage, File } from 'multer';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage, File } from 'multer';
 import { extname } from 'path';
 import { Repository } from 'typeorm';
 
-import { Role } from './enums/role.enum';
 import { UserService } from './user.services';
 import { UserDecorator } from './user.decorator';
 
@@ -28,6 +27,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { UpdateUserByUserDto } from './dto/update-user-byUser.dto';
+
+import { Role } from 'src/auth/enums/role.enum';
 
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/role.guard';

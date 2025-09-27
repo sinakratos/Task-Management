@@ -3,140 +3,126 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 
-import { Role } from './enums/role.enum';
+import { Role } from 'src/auth/enums/role.enum';
 import { User } from './entity/user.entity';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+
 import { UpdateUserByUserDto } from './dto/update-user-byUser.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
+
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
+    private readonly userRepository: Repository<User>,
   ) {}
 
-  // Validate password strength (min 8 chars, at least 1 upper, 1 lower)
+  // -------------------------
+  // 🔒 Password helpers
+  // -------------------------
   private isPasswordValid(password: string): boolean {
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-    return passwordRegex.test(password);
-  }
-  //
-  private async hashPassword(entryPassword: string) {
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(entryPassword, salt);
-    return hashedPassword;
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    return regex.test(password);
   }
 
-  async create(createUserDto: CreateUserDto) {
-    const { email, username, phone, password, role } = createUserDto;
-    console.log(createUserDto);
-    //
+  private async hashPassword(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt();
+    return bcrypt.hash(password, salt);
+  }
+
+  // -------------------------
+  // 👤 CRUD operations
+  // -------------------------
+  async create(dto: CreateUserDto): Promise<User> {
+    const { email, username, phone, password, role } = dto;
+
     if (!this.isPasswordValid(password)) {
       throw new InternalServerErrorException(
-        'Password must be at least 8 characters long, contain both uppercase and lowercase letters, and include at least one number.',
+        'Password must be at least 8 characters long, contain uppercase, lowercase letters, and at least one number.',
       );
     }
 
-    const existingUser = await this.userRepository.findOne({
+    const exists = await this.userRepository.findOne({
       where: [{ username }, { email }, { phone }],
     });
-    if (existingUser) {
+    if (exists) {
       throw new InternalServerErrorException('Username, email, or phone already taken');
     }
-    //
+
     const user = this.userRepository.create({
-      ...createUserDto,
-      password: await this.hashPassword(createUserDto.password),
+      ...dto,
+      password: await this.hashPassword(password),
       role: role ?? Role.USER,
     });
-    const result = await this.userRepository.save(user);
-    return result;
+
+    return this.userRepository.save(user);
   }
 
-  async findAll(paginationQuery: PaginationQueryDto) {
-    const { limit, offset } = paginationQuery;
-    const result = await this.userRepository.find({
-      skip: offset,
-      take: limit,
-    });
-
-    return result;
+  async findAll({ limit, offset }: PaginationQueryDto): Promise<User[]> {
+    return this.userRepository.find({ skip: offset, take: limit });
   }
 
-  async findOneById(id: number) {
-    const result = await this.userRepository.findOne({ where: { id } });
-    return result;
+  async findOneById(id: number): Promise<User> {
+    return this.getUserOrThrow(id);
   }
 
-  async findByUsername(username: string) {
-    const result = await this.userRepository.findOne({ where: { username } });
-    return result;
+  async findByUsername(username: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { username } });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-
-    // Create a clean object with only non-empty fields
-    const cleanedData: Partial<UpdateUserDto> = {};
-    for (const [key, value] of Object.entries(updateUserDto)) {
-      if (value !== '' && value !== undefined && value !== null) {
-        cleanedData[key] = value;
-      }
-    }
-
-    if (cleanedData.password) {
-      cleanedData.password = await this.hashPassword(cleanedData.password);
-    }
-
-    const updatedUser = this.userRepository.merge(user, cleanedData);
-    const result = await this.userRepository.save(updatedUser);
-    return result;
+  async update(id: number, dto: UpdateUserDto): Promise<User> {
+    return this.updateUserData(id, dto);
   }
 
-  async updateUser(id: number, updateUserByUserDto: UpdateUserByUserDto) {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-
-    // Create a clean object with only non-empty fields
-    const cleanedData: Partial<UpdateUserByUserDto> = {};
-    for (const [key, value] of Object.entries(updateUserByUserDto)) {
-      if (value !== '' && value !== undefined && value !== null) {
-        cleanedData[key] = value;
-      }
-    }
-    if (cleanedData.password) {
-      cleanedData.password = await this.hashPassword(cleanedData.password);
-    }
-
-    const updatedUser = this.userRepository.merge(user, cleanedData);
-    const result = await this.userRepository.save(updatedUser);
-    return result;
+  async updateUser(id: number, dto: UpdateUserByUserDto): Promise<User> {
+    return this.updateUserData(id, dto);
   }
 
-  async toggleRole(userId: number, role: Role) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
+  async toggleRole(userId: number, role: Role): Promise<string> {
+    const user = await this.getUserOrThrow(userId);
 
     user.role = user.role === role ? Role.USER : role;
-
     await this.userRepository.save(user);
 
     return `Role updated: ${user.username} is now ${user.role}`;
   }
 
-  async removeById(id: number) {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
-
+  async removeById(id: number): Promise<{ message: string }> {
+    const user = await this.getUserOrThrow(id);
     await this.userRepository.remove(user);
 
-    return { message: 'User and related tasks deleted successfully ' };
+    return { message: 'User and related tasks deleted successfully' };
+  }
+
+  // -------------------------
+  // 🔧 Helpers
+  // -------------------------
+  private async getUserOrThrow(id: number): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException(`User with ID ${id} not found`);
+    return user;
+  }
+
+  private async updateUserData<T extends UpdateUserDto | UpdateUserByUserDto>(
+    id: number,
+    dto: T,
+  ): Promise<User> {
+    const user = await this.getUserOrThrow(id);
+
+    const cleaned: Partial<T> = {};
+    for (const [key, value] of Object.entries(dto)) {
+      if (value !== '' && value !== undefined && value !== null) {
+        cleaned[key as keyof T] = value as any;
+      }
+    }
+
+    if (cleaned.password) {
+      cleaned.password = (await this.hashPassword(cleaned.password as string)) as any;
+    }
+
+    const updated = this.userRepository.merge(user, cleaned);
+    return this.userRepository.save(updated);
   }
 }
